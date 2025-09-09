@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="az">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Satış Kalkulyatoru — Kontakt Paketlər</title>
+  <style>
+    :root{--bg:#0f1724;--card:#0b1220;--accent:#6ee7b7;--muted:#94a3b8}
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;font-family:Inter,ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,'Helvetica Neue',Arial;
+      background:linear-gradient(180deg,#071025 0%, #071a2d 60%);color:#e6eef8;padding:32px;
+      display:flex;align-items:center;justify-content:center;
+    }
+    .container{width:100%;max-width:980px;background:radial-gradient(1200px 300px at 10% 10%, rgba(110,231,183,0.04), transparent 20%), var(--card);border-radius:16px;padding:24px;box-shadow:0 10px 30px rgba(2,6,23,0.7);border:1px solid rgba(255,255,255,0.03)}
+    header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+    h1{font-size:20px;margin:0}
+    .desc{color:var(--muted);font-size:13px}
+    .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
+    .item{background:linear-gradient(180deg, rgba(255,255,255,0.02), transparent);padding:14px;border-radius:12px;border:1px solid rgba(255,255,255,0.03);display:flex;align-items:center;gap:12px;transition:transform .18s ease, box-shadow .18s ease}
+    .item:hover{transform:translateY(-6px);box-shadow:0 12px 30px rgba(0,0,0,0.6)}
+    .thumb{width:72px;height:56px;border-radius:8px;background:linear-gradient(135deg,var(--accent),#60a5fa);display:flex;align-items:center;justify-content:center;font-weight:700;color:#04201a}
+    .meta{flex:1}
+    .title{font-weight:600}
+    .price{color:var(--muted);font-size:13px;margin-top:6px}
+    .controls{display:flex;flex-direction:column;align-items:flex-end;gap:8px}
+    button.add{background:transparent;border:1px solid rgba(255,255,255,0.06);padding:8px 12px;border-radius:8px;color:var(--accent);cursor:pointer;font-weight:600;backdrop-filter: blur(4px);transition:transform .12s ease, box-shadow .12s ease}
+    button.add:active{transform:scale(.98)}
+    .cart{margin-top:18px;background:linear-gradient(180deg, rgba(255,255,255,0.01), transparent);padding:16px;border-radius:12px;border:1px solid rgba(255,255,255,0.03)}
+    .cart h2{margin:0 0 8px 0;font-size:16px}
+    .lines{display:flex;flex-direction:column;gap:8px}
+    .line{display:flex;align-items:center;justify-content:space-between;padding:10px;border-radius:10px;background:linear-gradient(90deg, rgba(255,255,255,0.01), transparent);border:1px solid rgba(255,255,255,0.02)}
+    .line .left{display:flex;gap:12px;align-items:center}
+    .qty{display:flex;gap:6px;align-items:center}
+    .qty button{width:28px;height:28px;border-radius:8px;border:none;background:rgba(255,255,255,0.03);color:var(--accent);cursor:pointer}
+    .remove{background:transparent;border:none;color:#ff9b9b;cursor:pointer}
+    .total{display:flex;align-items:center;justify-content:space-between;margin-top:12px;padding-top:12px;border-top:1px dashed rgba(255,255,255,0.03)}
+    .grand{font-weight:700;font-size:18px}
+    .empty{color:var(--muted);padding:12px;border-radius:8px;text-align:center}
+    footer{display:flex;justify-content:space-between;align-items:center;margin-top:16px}
+    .save{background:transparent;border:1px solid rgba(255,255,255,0.04);padding:8px 12px;border-radius:8px;color:var(--muted);cursor:pointer}
+    @media(max-width:700px){.grid{grid-template-columns:1fr}.thumb{width:64px;height:48px}}
+    /* tiny animations */
+    .pulse{animation:pulse 1.6s infinite}
+    @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(110,231,183,0.12)}70%{box-shadow:0 0 0 12px rgba(110,231,183,0)}100%{box-shadow:0 0 0 0 rgba(110,231,183,0)}}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div>
+        <h1>Satış Kalkulyatoru — Kontakt Paketlər</h1>
+        <div class="desc">Məhsulları sağdakı "Əlavə et" düyməsi ilə əlavə edin. Seçimlər aşağıda cəmlənir və yadda saxlanılır.</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-weight:700">Online/Retail</div>
+        <div class="desc">Yerli yaddaş: <span id="storageState">yüklənir...</span></div>
+      </div>
+    </header>
+
+    <section class="grid" id="products"></section>
+
+    <section class="cart" aria-live="polite">
+      <h2>Səbət</h2>
+      <div class="lines" id="lines">
+        <div class="empty" id="empty">Heç bir məhsul seçilməyib.</div>
+      </div>
+
+      <div class="total">
+        <div class="desc">Ümumi:</div>
+        <div class="grand" id="grand">0.00 qəp</div>
+      </div>
+
+      <footer>
+        <div class="desc">Yaddaş: seçimlər avtomatik saxlanılır (localStorage).</div>
+        <div>
+          <button class="save" id="clearBtn">Sıfırla</button>
+        </div>
+      </footer>
+    </section>
+  </div>
+
+  <script>
+    // Məhsul siyahısı (istifadəçinin verdiyi dəqiq ad və qiymətlər)
+    const PRODUCTS = [
+      { id: 'p1', name: 'Kontakt Paket 25*35', price: 0.10 },
+      { id: 'p2', name: 'Kontakt Paket 35*45', price: 0.20 },
+      { id: 'p3', name: 'Kontakt Paket 45*70', price: 0.30 },
+      { id: 'p4', name: 'Kontakt Paket 65*80', price: 0.50 }
+    ];
+
+    // Lokal saxlanma açarı
+    const STORAGE_KEY = 'satish_kalkulyator_v1';
+
+    // UI elementlər
+    const productsEl = document.getElementById('products');
+    const linesEl = document.getElementById('lines');
+    const grandEl = document.getElementById('grand');
+    const emptyEl = document.getElementById('empty');
+    const storageStateEl = document.getElementById('storageState');
+    const clearBtn = document.getElementById('clearBtn');
+
+    // Cart structure: { productId: qty }
+    let cart = {};
+
+    // Render product cards
+    function renderProducts(){
+      productsEl.innerHTML = '';
+      PRODUCTS.forEach(p=>{
+        const card = document.createElement('div'); card.className = 'item';
+        card.innerHTML = `
+          <div class="thumb pulse">${p.name.split(' ')[2] || 'KP'}</div>
+          <div class="meta">
+            <div class="title">${p.name}</div>
+            <div class="price">Qiymət: <strong>${formatPrice(p.price)}</strong></div>
+          </div>
+          <div class="controls">
+            <button class="add" data-id="${p.id}">Əlavə et</button>
+            <div class="desc">Bir kliklə əlavə et — təkrar seçmək olar</div>
+          </div>
+        `;
+        productsEl.appendChild(card);
+      });
+
+      // Attach handlers
+      productsEl.querySelectorAll('button.add').forEach(b=>{
+        b.addEventListener('click',()=>{
+          const id = b.dataset.id; addToCart(id);
+          animateButton(b);
+        });
+      });
+    }
+
+    function animateButton(btn){
+      btn.style.transform = 'translateY(-6px)';
+      setTimeout(()=>btn.style.transform = '',180);
+    }
+
+    // Add to cart
+    function addToCart(id, qty=1){
+      cart[id] = (cart[id]||0) + qty;
+      saveCart();
+      renderCart();
+    }
+
+    function removeFromCart(id){
+      delete cart[id];
+      saveCart();
+      renderCart();
+    }
+
+    function changeQty(id, delta){
+      cart[id] = (cart[id]||0) + delta;
+      if(cart[id] <= 0) delete cart[id];
+      saveCart(); renderCart();
+    }
+
+    function renderCart(){
+      linesEl.innerHTML = '';
+      const ids = Object.keys(cart);
+      if(ids.length === 0){ linesEl.appendChild(emptyEl); grandEl.textContent = formatPrice(0); return; }
+
+      ids.forEach(id=>{
+        const prod = PRODUCTS.find(p=>p.id===id);
+        const qty = cart[id];
+        const lineTotal = +(prod.price * qty).toFixed(2);
+        const line = document.createElement('div'); line.className='line';
+        line.innerHTML = `
+          <div class="left">
+            <div style="width:48px;height:34px;border-radius:6px;background:rgba(255,255,255,0.02);display:flex;align-items:center;justify-content:center;">${qty}x</div>
+            <div>
+              <div style="font-weight:600">${prod.name}</div>
+              <div class="desc">${formatPrice(prod.price)} / 1 ədəd</div>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <div class="qty">
+              <button class="dec" data-id="${id}" title="Azalt">−</button>
+              <div style="min-width:38px;text-align:center">${qty}</div>
+              <button class="inc" data-id="${id}" title="Artır">+</button>
+            </div>
+            <div style="width:80px;text-align:right;font-weight:700">${formatPrice(lineTotal)}</div>
+            <button class="remove" data-id="${id}" title="Sil">Sil</button>
+          </div>
+        `;
+        linesEl.appendChild(line);
+      });
+
+      // attach handlers
+      linesEl.querySelectorAll('button.inc').forEach(b=>b.addEventListener('click',()=>changeQty(b.dataset.id,1)));
+      linesEl.querySelectorAll('button.dec').forEach(b=>b.addEventListener('click',()=>changeQty(b.dataset.id,-1)));
+      linesEl.querySelectorAll('button.remove').forEach(b=>b.addEventListener('click',()=>removeFromCart(b.dataset.id)));
+
+      // grand total
+      const grand = ids.reduce((s,id)=>{
+        const p = PRODUCTS.find(x=>x.id===id); return s + p.price * cart[id];
+      },0);
+      grandEl.textContent = formatPrice(+grand.toFixed(2));
+    }
+
+    function formatPrice(num){
+      // show two decimals and add "qəp"
+      return Number(num).toFixed(2) + ' qəp';
+    }
+
+    // Persistence
+    function saveCart(){
+      try{
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(cart));
+        storageStateEl.textContent = 'aktiv';
+      }catch(e){
+        storageStateEl.textContent = 'saxlanmadı';
+      }
+    }
+    function loadCart(){
+      try{
+        const raw = localStorage.getItem(STORAGE_KEY);
+        cart = raw ? JSON.parse(raw) : {};
+        storageStateEl.textContent = 'aktiv';
+      }catch(e){ cart = {}; storageStateEl.textContent = 'xəta' }
+    }
+
+    clearBtn.addEventListener('click',()=>{
+      if(confirm('Səbəti sıfırlamaq istədiyinizdən əminsiniz?')){
+        cart = {}; saveCart(); renderCart();
+      }
+    });
+
+    // init
+    loadCart(); renderProducts(); renderCart();
+
+    // make it pretty when adding via keyboard
+    document.addEventListener('keydown', e=>{
+      if(e.key==='+' || e.key==='='){ addToCart('p1'); }
+    });
+  </script>
+</body>
+</html>
