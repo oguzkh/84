@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="az">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Kontakt Paket - Satış Kalkulyatoru (LocalStorage versiya)</title>
+  <style>
+    :root{--bg:#0f1724;--card:#0b1220;--accent:#06b6d4;--muted:#9ca3af;--glass: rgba(255,255,255,0.03)}
+    *{box-sizing:border-box}
+    body{margin:0; font-family:Inter, system-ui, Arial; background:linear-gradient(180deg,#071021 0%,#0b1220 60%); color:#e6eef6; min-height:100vh; display:flex; align-items:center; justify-content:center; padding:28px}
+    .wrap{width:100%; max-width:980px}
+    header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+    h1{margin:0;font-size:20px}
+    .sub{color:var(--muted); font-size:13px}
+    .grid{display:grid;grid-template-columns:1fr 420px;gap:18px}
+    .card{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01)); border-radius:12px; padding:16px; box-shadow:0 8px 30px rgba(2,6,23,0.7)}
+    .items{display:flex;flex-direction:column;gap:12px}
+    .item{display:flex;align-items:center;justify-content:space-between;padding:12px;border-radius:10px;background:var(--glass);backdrop-filter: blur(6px); transition:transform .2s ease, box-shadow .2s}
+    .item:hover{transform:translateY(-6px); box-shadow:0 10px 30px rgba(2,6,23,0.6)}
+    .item .left{display:flex;align-items:center;gap:12px}
+    .tag{font-weight:700; font-size:13px}
+    .price{min-width:80px;text-align:right;color:var(--accent)}
+    button.add{background:linear-gradient(90deg,#06b6d4,#7c3aed); border:0;padding:8px 12px;border-radius:8px;color:#021; font-weight:700; cursor:pointer}
+    .cart{display:flex;flex-direction:column; gap:12px}
+    .cart-list{max-height:420px; overflow:auto; padding:8px; display:flex; flex-direction:column; gap:8px}
+    .entry{display:flex; justify-content:space-between; align-items:center; padding:8px; border-radius:8px; background:rgba(255,255,255,0.02)}
+    .controls{display:flex;gap:8px;align-items:center}
+    .btn{padding:8px 10px;border-radius:8px;border:0;cursor:pointer;font-weight:600}
+    .btn.ghost{background:transparent;border:1px solid rgba(255,255,255,0.06);color:var(--muted)}
+    .btn.warn{background:#ef4444;color:white}
+    .totals{font-size:16px;display:flex;justify-content:space-between;align-items:center}
+    .small{font-size:13px;color:var(--muted)}
+    .pulse{animation:pulse 1.6s infinite}
+    @keyframes pulse{0%{transform:scale(1)}50%{transform:scale(1.02)}100%{transform:scale(1)}}
+    footer{margin-top:12px;color:var(--muted); font-size:13px}
+    .badge{background:rgba(255,255,255,0.04);padding:6px 10px;border-radius:999px;font-weight:700}
+    .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:26px;background:#021225;padding:10px 14px;border-radius:10px;box-shadow:0 8px 30px rgba(2,6,23,0.7);border:1px solid rgba(255,255,255,0.03)}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div>
+        <h1>Kontakt Paket — Satış Kalkulyatoru</h1>
+        <div class="sub">Sadə versiya — məlumatlar brauzer yaddaşında saxlanılır.</div>
+      </div>
+      <div class="controls">
+        <div class="badge" id="onlineStatus">local</div>
+      </div>
+    </header>
+
+    <div class="grid">
+      <div class="card">
+        <h3> Məhsullar </h3>
+        <div class="items" id="products"></div>
+      </div>
+
+      <div class="card">
+        <h3> Səbət </h3>
+        <div class="cart">
+          <div class="cart-list" id="cartList"></div>
+
+          <div class="totals">
+            <div class="small">Cəmi:</div>
+            <div id="totalAmount">0.00 qəp</div>
+          </div>
+
+          <div style="display:flex;gap:8px;margin-top:8px">
+            <button class="btn ghost" id="clearCart">Təmizlə</button>
+            <button class="btn warn" id="resetDay">Gün sonu sıfırla</button>
+          </div>
+
+          <div style="margin-top:10px" class="small">Son əməliyyat: <span id="lastOp">—</span></div>
+        </div>
+      </div>
+    </div>
+
+    <footer>
+      <div class="small">Qeyd: Bu versiyada məlumatlar yalnız sizin brauzerinizdə saxlanılır. GitHub Pages üzərində paylaşsanız hər kəs öz fərdi siyahısını görəcək.</div>
+    </footer>
+  </div>
+
+  <div id="toast" class="toast" style="display:none"></div>
+
+  <script>
+  const PRODUCTS = [
+    {id:'p1', name:'Kontakt Paket 25×35', price:0.10},
+    {id:'p2', name:'Kontakt Paket 35×45', price:0.20},
+    {id:'p3', name:'Kontakt Paket 45×70', price:0.30},
+    {id:'p4', name:'Kontakt Paket 65×80', price:0.50}
+  ];
+
+  const productsEl = document.getElementById('products');
+  const cartList = document.getElementById('cartList');
+  const totalAmount = document.getElementById('totalAmount');
+  const lastOp = document.getElementById('lastOp');
+
+  function toast(msg, t=2200){const el=document.getElementById('toast'); el.textContent=msg; el.style.display='block'; setTimeout(()=>el.style.display='none',t)}
+
+  PRODUCTS.forEach(p=>{
+    const div=document.createElement('div'); div.className='item';
+    div.innerHTML = `<div class="left"><div class="tag">${p.name}</div></div><div style="display:flex;align-items:center;gap:8px"><div class="price">${p.price.toFixed(2)} qəp</div><button class="add" data-id="${p.id}">Əlavə et</button></div>`;
+    productsEl.appendChild(div);
+  });
+
+  let sales = JSON.parse(localStorage.getItem('sales')||'[]');
+
+  function render(){
+    cartList.innerHTML='';
+    let total = 0;
+    sales.sort((a,b)=> b.ts-a.ts);
+    sales.forEach((val,i)=>{
+      const el = document.createElement('div'); el.className='entry';
+      const left = document.createElement('div'); left.innerHTML = `<div style="font-weight:700">${val.name}</div><div class="small">${new Date(val.ts).toLocaleString()}</div>`;
+      const right = document.createElement('div'); right.innerHTML = `<div style="text-align:right">${(val.price).toFixed(2)} qəp</div><div style="display:flex;gap:6px;margin-top:6px"><button class="btn ghost" data-index="${i}" data-action="del">Sil</button></div>`;
+      el.appendChild(left); el.appendChild(right);
+      cartList.appendChild(el);
+      total += Number(val.price || 0);
+    });
+    totalAmount.textContent = total.toFixed(2) + ' qəp';
+    lastOp.textContent = sales.length ? new Date(sales[0].ts).toLocaleString() : '—';
+
+    cartList.querySelectorAll('button[data-action="del"]').forEach(b=>b.addEventListener('click', e=>{
+      const idx = b.getAttribute('data-index');
+      if(confirm('Silinsin?')){ sales.splice(idx,1); save(); }
+    }));
+  }
+
+  function save(){ localStorage.setItem('sales', JSON.stringify(sales)); render(); }
+
+  function addSale(p){
+    sales.push({name:p.name, price:p.price, ts:Date.now()});
+    save(); toast('Əlavə edildi: ' + p.name);
+  }
+
+  document.querySelectorAll('.add').forEach(btn=>btn.addEventListener('click', e=>{
+    const id = e.currentTarget.getAttribute('data-id');
+    const p = PRODUCTS.find(x=>x.id===id);
+    if(p) addSale(p);
+  }));
+
+  document.getElementById('clearCart').addEventListener('click', ()=>{
+    if(confirm('Səbəti təmizləmək istəyirsiniz?')){ sales=[]; save(); toast('Təmizləndi'); }
+  });
+
+  document.getElementById('resetDay').addEventListener('click', ()=>{
+    if(confirm('Bütün tarixçə silinsin?')){ sales=[]; save(); toast('Gün sıfırlandı'); }
+  });
+
+  render();
+  </script>
+</body>
+</html>
